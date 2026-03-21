@@ -13,3 +13,8 @@ export interface ResolvedOptions {
   template: string;
   transport: Transport;
 }
+
+export interface GeneratedFile {
+  content: string;
+  path: string;
+}
