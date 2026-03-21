@@ -35,8 +35,8 @@ function renderPackageJson(options: ResolvedOptions) {
         zod: "latest",
       },
       devDependencies: {
-        "bun-types": "^1.3.11",
-        typescript: "^5.4.0",
+        "@types/bun": "latest",
+        typescript: "latest",
       },
     },
     null,
@@ -103,7 +103,7 @@ app.listen({
   hostname: "0.0.0.0",
   cors: true,
   onListen: ({ url }) => {
-    console.log(\`redop ready -> \${url}\`);
+    console.log(\`Redop is running at \${url}\`);
   },
 });
 `;
@@ -176,7 +176,7 @@ function renderWarnings(options: ResolvedOptions) {
 
 function deploySection(deploy: DeployTarget) {
   switch (deploy) {
-    case "bun":
+    case "none":
       return `## Deploy on Bun runtime
 
 Run this app as a Bun HTTP or stdio service. For HTTP, bind to \`0.0.0.0\` and read \`PORT\` from the environment.`;
