@@ -25,7 +25,9 @@ function createSessionStore(timeoutMs: number) {
   function gc() {
     const now = Date.now();
     for (const [id, s] of sessions) {
-      if (now - s.lastSeen > timeoutMs) sessions.delete(id);
+      if (now - s.lastSeen > timeoutMs) {
+        sessions.delete(id);
+      }
     }
   }
 
@@ -40,7 +42,9 @@ function createSessionStore(timeoutMs: number) {
     },
     touch(id: string): boolean {
       const s = sessions.get(id);
-      if (!s) return false;
+      if (!s) {
+        return false;
+      }
       s.lastSeen = Date.now();
       return true;
     },
@@ -59,7 +63,9 @@ function buildCorsHeaders(
   cors: ListenOptions["cors"],
   requestOrigin?: string | null
 ): Record<string, string> {
-  if (!cors) return {};
+  if (!cors) {
+    return {};
+  }
 
   if (cors === true) {
     return {
@@ -166,12 +172,12 @@ async function handleJsonRpc(
     const p = params as { name?: string; arguments?: Record<string, unknown> };
     const toolName = p?.name;
 
-    if (!toolName || !tools.has(toolName)) {
+    if (!(toolName && tools.has(toolName))) {
       return {
         jsonrpc: "2.0",
         id,
         error: {
-          code: -32602,
+          code: -32_602,
           message: `Unknown tool: ${toolName ?? "(none)"}`,
         },
       };
@@ -207,7 +213,7 @@ async function handleJsonRpc(
   return {
     jsonrpc: "2.0",
     id,
-    error: { code: -32601, message: `Method not found: ${method}` },
+    error: { code: -32_601, message: `Method not found: ${method}` },
   };
 }
 
@@ -330,7 +336,7 @@ export function startHttpTransport(
             {
               jsonrpc: "2.0",
               id: null,
-              error: { code: -32700, message: "Parse error" },
+              error: { code: -32_700, message: "Parse error" },
             },
             { status: 400, headers: corsHeaders }
           );

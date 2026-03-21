@@ -13,10 +13,10 @@ import type {
   InferSchemaOutput,
   ListenOptions,
   MapResponseHook,
-  RedopOptions,
   PluginDefinition,
   PluginFactory,
   PluginMeta,
+  RedopOptions,
   RequestMeta,
   ResolvedTool,
   SchemaAdapter,
@@ -244,7 +244,9 @@ export class Redop<C extends Context = Context> {
     request: RequestMeta = DEFAULT_REQUEST_META
   ): Promise<unknown> {
     const tool = this._tools.get(toolName);
-    if (!tool) throw new Error(`Unknown tool: ${toolName}`);
+    if (!tool) {
+      throw new Error(`Unknown tool: ${toolName}`);
+    }
 
     const ctx = {
       headers: request.headers,
@@ -450,9 +452,7 @@ export function definePlugin<Options, C extends Context = Context>(
   const meta: PluginMeta = {
     name: definition.name,
     version: definition.version,
-    ...(definition.description
-      ? { description: definition.description }
-      : {}),
+    ...(definition.description ? { description: definition.description } : {}),
   };
 
   factory.meta = meta;

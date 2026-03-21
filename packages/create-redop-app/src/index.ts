@@ -1,89 +1,39 @@
 #!/usr/bin/env node
+import chalk from "chalk";
+import { Command } from "commander";
+import packageJson from "../package.json";
+import { assertEmptyTargetDir } from "./files";
+import { generateProject } from "./generator";
+import { runPrompts } from "./prompt";
 
-import path from "node:path";
-import process from "node:process";
+const program = new Command();
 
-import { defaultDeployForTransport, getHelpText, parseCliArgs } from "./args";
-import { assertEmptyTargetDir, writeGeneratedFiles } from "./files";
-import { promptForRemaining } from "./prompt";
-import { buildFiles } from "./templates";
-import type { DeployTarget, ResolvedOptions, Transport } from "./types";
+program
+  .name("create-redop-app")
+  .version(packageJson.version)
+  .argument("[dir]", "Target directory")
+  .option("-t, --transport <type>", "transport type (http, stdio)")
+  .option(
+    "-d, --deploy <target>",
+    "deployment target (railway, fly-io, vercel, none)"
+  )
+  .action(async (dir, options) => {
+    console.log(chalk.cyan(`${packageJson.name}@${packageJson.version}`));
 
-function resolveDefaultName() {
-  return "my-redop-app";
-}
+    // 1. Pass the 'dir' and 'options' into runPrompts.
+    // This allows the prompt logic to skip questions if the user
+    // already provided flags like --transport or --deploy.
+    const config = await runPrompts(dir, options);
 
-function validateName(name: string) {
-  const trimmed = name.trim();
-  if (!trimmed) {
-    throw new Error("App name cannot be empty.");
-  }
-  return trimmed;
-}
+    // 2. BUG FIX: Use 'config.targetDir' instead of 'options.targetDir'.
+    // In Commander, 'options' only contains flags (-t, -d).
+    // The actual path comes from your prompt result.
+    await assertEmptyTargetDir(config.targetDir);
 
-async function resolveOptions(argv: string[]): Promise<ResolvedOptions> {
-  const parsed = parseCliArgs(argv);
-
-  if (parsed.help) {
-    console.log(getHelpText());
-    process.exit(0);
-  }
-
-  const defaultName = resolveDefaultName();
-  const defaultTransport = parsed.transport ?? "http";
-  const defaultDeploy = parsed.deploy ?? defaultDeployForTransport(defaultTransport);
-
-  const collected: {
-    deploy: DeployTarget;
-    name: string;
-    targetDir: string;
-    transport: Transport;
-  } = parsed.yes
-    ? {
-        deploy: defaultDeploy,
-        name: parsed.name ?? defaultName,
-        targetDir: parsed.targetDir ?? (parsed.name ?? defaultName),
-        transport: defaultTransport,
-      }
-    : await promptForRemaining({
-        defaultDeploy,
-        defaultName,
-        deploy: parsed.deploy,
-        name: parsed.name,
-        targetDir: parsed.targetDir,
-        transport: parsed.transport,
-      });
-
-  const appName = validateName(collected.name);
-
-  return {
-    appName,
-    deploy: collected.deploy,
-    targetDir: path.resolve(process.cwd(), collected.targetDir),
-    transport: collected.transport,
-  };
-}
-
-export async function run(argv: string[]) {
-  const options = await resolveOptions(argv);
-  await assertEmptyTargetDir(options.targetDir);
-  const files = buildFiles(options);
-  await writeGeneratedFiles(options.targetDir, files);
-
-  const relativeDir = path.relative(process.cwd(), options.targetDir) || ".";
-  console.log(`Created Redop app in ${relativeDir}`);
-  console.log("");
-  console.log("Next steps:");
-  console.log(`  cd ${relativeDir}`);
-  console.log("  bun install");
-  console.log("  bun run src/index.ts");
-}
-
-if (import.meta.main) {
-  run(process.argv.slice(2)).catch((error) => {
-    console.error(
-      error instanceof Error ? error.message : `Unknown error: ${String(error)}`
-    );
-    process.exit(1);
+    // 3. LOGIC FIX: The generator should use the final config.
+    // In your original code, the 'if (options.deploy)' block did nothing
+    // because it didn't update the 'config' object passed to the generator.
+    await generateProject(config);
   });
-}
+
+program.parse(process.argv);

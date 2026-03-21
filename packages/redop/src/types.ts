@@ -36,17 +36,17 @@ export interface McpToolResult {
 }
 
 export enum McpErrorCode {
-  ParseError = -32700,
-  InvalidRequest = -32600,
-  MethodNotFound = -32601,
-  InvalidParams = -32602,
-  InternalError = -32603,
+  ParseError = -32_700,
+  InvalidRequest = -32_600,
+  MethodNotFound = -32_601,
+  InvalidParams = -32_602,
+  InternalError = -32_603,
   // MCP-specific
-  ToolNotFound = -32000,
-  ValidationFailed = -32001,
-  Unauthorized = -32002,
-  RateLimited = -32003,
-  Timeout = -32004,
+  ToolNotFound = -32_000,
+  ValidationFailed = -32_001,
+  Unauthorized = -32_002,
+  RateLimited = -32_003,
+  Timeout = -32_004,
 }
 
 export class McpError extends Error {
@@ -115,10 +115,7 @@ export type Context<
 /**
  * Event object passed to every tool handler.
  */
-export interface ToolHandlerEvent<
-  I = unknown,
-  C extends Context = Context,
-> {
+export interface ToolHandlerEvent<I = unknown, C extends Context = Context> {
   /** Shared mutable per-request state. */
   ctx: C;
   /** Parsed tool input after schema validation/coercion. */
@@ -132,10 +129,7 @@ export interface ToolHandlerEvent<
 /**
  * Event object passed to a tool-local `before` hook.
  */
-export interface ToolBeforeHookEvent<
-  I = unknown,
-  C extends Context = Context,
-> {
+export interface ToolBeforeHookEvent<I = unknown, C extends Context = Context> {
   /** Shared mutable per-request state. */
   ctx: C;
   /** Parsed tool input after schema validation/coercion. */
@@ -158,11 +152,9 @@ export interface ToolAfterHookEvent<
   result: R;
 }
 
-export type ToolHandler<
-  I,
-  O = unknown,
-  C extends Context = Context,
-> = (event: ToolHandlerEvent<I, C>) => O | Promise<O>;
+export type ToolHandler<I, O = unknown, C extends Context = Context> = (
+  event: ToolHandlerEvent<I, C>
+) => O | Promise<O>;
 
 export type ToolNext<R = unknown> = () => Promise<R>;
 
@@ -208,10 +200,8 @@ export interface PluginMeta {
 /**
  * Definition object used by `definePlugin(...)`.
  */
-export interface PluginDefinition<
-  Options,
-  C extends Context = Context,
-> extends PluginMeta {
+export interface PluginDefinition<Options, C extends Context = Context>
+  extends PluginMeta {
   /** Create a plugin instance from a single options object. */
   setup: (options: Options) => import("./redop").Redop<C>;
 }
@@ -219,20 +209,14 @@ export interface PluginDefinition<
 /**
  * Callable plugin factory with attached metadata for docs and introspection.
  */
-export interface PluginFactory<
-  Options,
-  C extends Context = Context,
-> {
-  (options: Options): import("./redop").Redop<C>;
+export interface PluginFactory<Options, C extends Context = Context> {
   meta: PluginMeta;
+  (options: Options): import("./redop").Redop<C>;
 }
 
 // ── Hook event shapes ─────────────────────────
 
-export interface BeforeHookEvent<
-  C extends Context = Context,
-  I = unknown,
-> {
+export interface BeforeHookEvent<C extends Context = Context, I = unknown> {
   ctx: C;
   input: I;
   params: I;
@@ -253,10 +237,7 @@ export interface AfterHookEvent<
   tool: string;
 }
 
-export interface ErrorHookEvent<
-  C extends Context = Context,
-  I = unknown,
-> {
+export interface ErrorHookEvent<C extends Context = Context, I = unknown> {
   ctx: C;
   error: unknown;
   input: I;
@@ -344,11 +325,12 @@ export interface StandardSchemaV1<Input = unknown, Output = Input> {
   };
 }
 
-export type InferSchemaOutput<S> = S extends StandardSchemaV1<any, infer Output>
-  ? Output
-  : S extends Record<string, unknown>
-    ? Record<string, unknown>
-    : unknown;
+export type InferSchemaOutput<S> =
+  S extends StandardSchemaV1<any, infer Output>
+    ? Output
+    : S extends Record<string, unknown>
+      ? Record<string, unknown>
+      : unknown;
 
 /**
  * Implement this interface to plug any schema library into redop.
@@ -377,6 +359,8 @@ export interface ToolDef<
   C extends Context = Context,
   O = unknown,
 > {
+  /** Tool-local hook that runs after middleware/handler success and before global after hooks. */
+  after?: ToolAfterHook<I, O, C>;
   /** MCP tool annotations surfaced to compatible clients. */
   annotations?: {
     title?: string;
@@ -389,8 +373,6 @@ export interface ToolDef<
   before?: ToolBeforeHook<I, C>;
   /** Human-friendly tool description shown in tool listings. */
   description?: string;
-  /** Tool-local hook that runs after middleware/handler success and before global after hooks. */
-  after?: ToolAfterHook<I, O, C>;
   /** Tool handler receiving parsed input, shared context, and request metadata. */
   handler: ToolHandler<I, O, C>;
   /** Schema instance (Zod, TypeBox, etc.) or plain JSON Schema object */
