@@ -371,7 +371,7 @@ export interface ToolDef<
   };
   /** Tool-local hook that runs after global before hooks and before middleware. */
   before?: ToolBeforeHook<I, C>;
-  /** Human-friendly tool description shown in tool listings. */
+  /**  Human-readable description of functionality. */
   description?: string;
   /** Tool handler receiving parsed input, shared context, and request metadata. */
   handler: ToolHandler<I, O, C>;
@@ -407,23 +407,127 @@ export interface CorsOptions {
 
 export type TlsOptions = import("bun").TLSOptions;
 
-export interface ServerInfoOptions {
-  name?: string;
-  version?: string;
+export interface ServerIcon {
+  /** MIME type of the icon (e.g. "image/svg+xml", "image/png"). */
+  mimeType?: string;
+  /**
+   * Size descriptors — same format as HTML <link sizes>.
+   * Use ["any"] for SVGs, ["32x32", "64x64"] for raster.
+   */
+  sizes?: string[];
+  /** URL to the icon image. */
+  src: string;
 }
 
+export interface ServerInfoOptions {
+  /** Short description of what this server provides. */
+  description?: string;
+  /** One or more icons for client UI display. */
+  icons?: ServerIcon[];
+  /**
+   * Free-text instructions the client should surface to the model
+   * describing how and when to use this server's tools.
+   */
+  instructions?: string;
+  /** Machine-readable server identifier. */
+  name?: string;
+  /** Human-readable display name shown in client UIs. */
+  title?: string;
+  /** Semver string advertised during initialize. */
+  version?: string;
+  /** Canonical website or docs URL for this server. */
+  websiteUrl?: string;
+}
 /**
  * Constructor options for `new Redop(...)`.
  */
+/**
+ * Constructor options for `new Redop(...)`.
+ *
+ * @example
+ * const app = new Redop({
+ *   name: "my-server",
+ *   title: "My MCP Server",
+ *   version: "1.0.0",
+ *   description: "Provides tools for doing X and Y.",
+ *   instructions: "Use the search tool before fetch.",
+ *   icons: [{ src: "https://example.com/icon.svg", mimeType: "image/svg+xml", sizes: ["any"] }],
+ *   websiteUrl: "https://example.com",
+ * });
+ */
 export interface RedopOptions {
-  /** MCP server identity advertised during initialize. Default: `"redop"`. */
-  name?: string;
-  /** Custom schema adapter. By default, redop auto-detects supported schemas. */
-  schemaAdapter?: SchemaAdapter;
-  /** MCP server version advertised during initialize. Default: `"0.1.0"`. */
-  version?: string;
-}
+  /**
+   * Short prose description of what this server provides.
+   * Surfaced to users in client UIs alongside the title.
+   *
+   * @example "Provides tools for querying and updating your CRM."
+   */
+  description?: string;
 
+  /**
+   * One or more icons for client UI display.
+   * Prefer SVG with `sizes: ["any"]` for resolution independence.
+   * Raster formats should supply multiple sizes (e.g. 32×32, 64×64).
+   *
+   * @example
+   * [{ src: "https://example.com/icon.svg", mimeType: "image/svg+xml", sizes: ["any"] }]
+   */
+  icons?: ServerIcon[];
+
+  /**
+   * Free-text instructions surfaced to the model at session start,
+   * describing how and when to use this server's tools.
+   * Emitted as `instructions` at the top level of `InitializeResult`
+   * (not nested inside `serverInfo`).
+   *
+   * Keep these concise — they consume context on every session.
+   *
+   * @example "Always call `search` before `fetch`. Prefer narrow queries."
+   */
+  instructions?: string;
+  /**
+   * Machine-readable server identifier advertised during MCP initialization.
+   * Should be a stable, lowercase slug — changing it is a breaking change for clients
+   * that key on server identity.
+   *
+   * @default "redop"
+   */
+  name?: string;
+
+  /**
+   * Custom schema adapter for validating and converting tool input schemas.
+   * By default redop auto-detects Zod, TypeBox, and Valibot.
+   * Supply this when using an unsupported schema library or to override
+   * detection behaviour.
+   *
+   * @see {@link SchemaAdapter}
+   */
+  schemaAdapter?: SchemaAdapter;
+
+  /**
+   * Human-readable display name shown in client UIs and tool-picker surfaces.
+   * May contain spaces and mixed case. Not used for identity matching.
+   *
+   * @example "My Awesome MCP Server"
+   */
+  title?: string;
+
+  /**
+   * Semver version string advertised during MCP initialization.
+   *
+   * @default "0.1.0"
+   * @example "2.3.1"
+   */
+  version?: string;
+
+  /**
+   * Canonical website or documentation URL for this server.
+   * Shown as a link in supporting client UIs.
+   *
+   * @example "https://example.com/docs"
+   */
+  websiteUrl?: string;
+}
 /**
  * Runtime options for `app.listen(...)`.
  */

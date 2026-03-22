@@ -3,7 +3,7 @@ title: Introduction
 description: Bun-native TypeScript framework for building typed MCP servers with tools, middleware, hooks, and plugins.
 ---
 
-`redop` is a Bun-native TypeScript framework for building MCP servers with typed tools, schema inference, middleware, lifecycle hooks, and reusable plugins.
+Redop is a Bun-native TypeScript framework for building MCP servers with typed tools, schema inference, middleware, lifecycle hooks, and reusable plugins.
 
 Use it when you want to:
 
@@ -30,7 +30,11 @@ import { z } from "zod";
 
 new Redop({
   name: "my-mcp-server",
-  version: "0.1.0",
+  title: "My MCP Server",
+  version: "1.0.0",
+  description: "Searches and retrieves docs.",
+  instructions: "Call search before fetch. Prefer narrow queries.",
+  websiteUrl: "https://example.com/docs",
 })
   .tool("search", {
     description: "Search docs",
@@ -41,10 +45,7 @@ new Redop({
       return { query: input.query, results: [] };
     },
   })
-  .listen({
-    port: 3000,
-    hostname: "0.0.0.0",
-  });
+  .listen({ port: 3000 });
 ```
 
 ## The mental model

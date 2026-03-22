@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────
+/** biome-ignore-all lint/style/noNestedTernary: <explanation> */
 //  redop — HTTP transport (Bun-native)
 // ─────────────────────────────────────────────
 
@@ -134,13 +134,26 @@ async function handleJsonRpc(
 
   // ── initialize ──
   if (method === "initialize") {
+    const { name, title, version, description, icons, websiteUrl } = serverInfo;
+
     return {
       jsonrpc: "2.0",
       id,
       result: {
         protocolVersion: "2024-11-05",
         capabilities: { tools: { listChanged: false } },
-        serverInfo,
+        serverInfo: {
+          name,
+          version,
+          ...(title ? { title } : {}),
+          ...(description ? { description } : {}),
+          ...(icons?.length ? { icons } : {}),
+          ...(websiteUrl ? { websiteUrl } : {}),
+        },
+        // instructions lives at the top level of InitializeResult, not inside serverInfo
+        ...(serverInfo.instructions
+          ? { instructions: serverInfo.instructions }
+          : {}),
         sessionId,
       },
     };
@@ -217,6 +230,47 @@ async function handleJsonRpc(
   };
 }
 
+// ── Origin validation ─────────────────────────
+function isOriginAllowed(
+  origin: string | null,
+  cors: ListenOptions["cors"],
+  hostname: string,
+  port: number
+): boolean {
+  // Non-browser clients don't send Origin — not a DNS rebinding risk.
+  if (!origin) {
+    return true;
+  }
+
+  // cors: true  →  permissive dev mode, mirror any origin
+  if (cors === true) {
+    return true;
+  }
+
+  // cors: false/undefined  →  default to localhost-only
+  if (!cors) {
+    return [
+      `http://${hostname}:${port}`,
+      `http://localhost:${port}`,
+      `http://127.0.0.1:${port}`,
+    ].includes(origin);
+  }
+
+  // cors: CorsOptions  →  validate against origins allowlist
+  const origins = cors.origins
+    ? Array.isArray(cors.origins)
+      ? cors.origins
+      : [cors.origins]
+    : ["*"];
+
+  // "*" in the list means explicitly open — treat like dev mode
+  if (origins.includes("*")) {
+    return true;
+  }
+
+  return origins.includes(origin);
+}
+
 // ── HTTP server ───────────────────────────────
 
 export function startHttpTransport(
@@ -226,7 +280,7 @@ export function startHttpTransport(
   serverInfo: Required<ServerInfoOptions>
 ) {
   const port = Number(opts.port ?? 3000);
-  const hostname = opts.hostname ?? "localhost";
+  const hostname = opts.hostname ?? "127.0.0.1";
   const mcpPath = opts.path ?? "/mcp";
   const sessionTimeout = opts.sessionTimeout ?? 30_000;
   const maxBodySize = opts.maxBodySize ?? 4 * 1024 * 1024;
@@ -250,6 +304,21 @@ export function startHttpTransport(
         return new Response(null, { status: 204, headers: corsHeaders });
       }
 
+      // ── Origin guard (DNS-rebinding protection) ──
+      if (!isOriginAllowed(origin, opts.cors, hostname, port)) {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: null,
+            error: { code: -32_600, message: "Forbidden: invalid Origin" },
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
       // ── Health check ──
       if (req.method === "GET" && url.pathname === `${mcpPath}/health`) {
         return Response.json(
@@ -258,49 +327,44 @@ export function startHttpTransport(
         );
       }
 
-      // ── Schema / discovery ──
-      if (req.method === "GET" && url.pathname === `${mcpPath}/schema`) {
-        const schema = {
-          openapi: "3.1.0",
-          info: {
-            title: `${serverInfo.name} MCP server`,
-            version: serverInfo.version,
-          },
-          paths: Object.fromEntries(
-            Array.from(tools.values()).map((t) => [
-              `/tools/${t.name}`,
-              {
-                post: {
-                  summary: t.description,
-                  requestBody: {
-                    content: { "application/json": { schema: t.inputSchema } },
-                  },
-                },
-              },
-            ])
-          ),
-        };
-        return Response.json(schema, { headers: corsHeaders });
-      }
-
       // ── SSE stream (GET /mcp) ──
       if (req.method === "GET" && url.pathname === mcpPath) {
-        let sessionId = req.headers.get("mcp-session-id") ?? "";
-        if (!sessions.touch(sessionId)) {
-          sessionId = sessions.create();
-        }
+        const incomingSessionId = req.headers.get("mcp-session-id") ?? "";
+        const sessionId =
+          incomingSessionId && sessions.touch(incomingSessionId)
+            ? incomingSessionId
+            : sessions.create();
+
+        let heartbeat: ReturnType<typeof setInterval>;
 
         const stream = new ReadableStream({
           start(controller) {
             sseClients.set(sessionId, controller);
-            // Send initial endpoint event
-            const event = `event: endpoint\ndata: ${JSON.stringify({
-              uri: `${url.origin}${mcpPath}`,
-              sessionId,
-            })}\n\n`;
-            controller.enqueue(new TextEncoder().encode(event));
+
+            const encode = (s: string) => new TextEncoder().encode(s);
+
+            // Initial endpoint event
+            controller.enqueue(
+              encode(
+                `event: endpoint\ndata: ${JSON.stringify({
+                  uri: `${url.origin}${mcpPath}`,
+                  sessionId,
+                })}\n\n`
+              )
+            );
+
+            // Keep-alive: SSE comment every 15s
+            heartbeat = setInterval(() => {
+              try {
+                controller.enqueue(encode(": ping\n\n"));
+              } catch {
+                // Stream already closed — cancel() will clean up
+                clearInterval(heartbeat);
+              }
+            }, 15_000);
           },
           cancel() {
+            clearInterval(heartbeat);
             sseClients.delete(sessionId);
             sessions.delete(sessionId);
           },
@@ -342,12 +406,26 @@ export function startHttpTransport(
           );
         }
 
-        // Session management
-        let sessionId = req.headers.get("mcp-session-id") ?? "";
-        if (!sessions.touch(sessionId)) {
-          sessionId = sessions.create();
+        const incomingSessionId = req.headers.get("mcp-session-id") ?? "";
+
+        // Every POST must reference a session established via GET (SSE)
+        if (!sessions.touch(incomingSessionId)) {
+          return Response.json(
+            {
+              jsonrpc: "2.0",
+              id: body?.id ?? null,
+              error: {
+                code: -32_600,
+                message: "Unknown or expired session. Connect via SSE first.",
+              },
+            },
+            { status: 400, headers: corsHeaders }
+          );
         }
 
+        const sessionId = incomingSessionId;
+
+        // handle the json rpc request
         const result = await handleJsonRpc(
           body,
           tools,

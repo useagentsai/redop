@@ -70,8 +70,8 @@ async function handleMessage(
     const p = params as { name?: string; arguments?: Record<string, unknown> };
     const toolName = p?.name;
 
-    if (!toolName || !tools.has(toolName)) {
-      error(-32602, `Unknown tool: ${toolName ?? "(none)"}`);
+    if (!(toolName && tools.has(toolName))) {
+      error(-32_602, `Unknown tool: ${toolName ?? "(none)"}`);
       return;
     }
 
@@ -87,7 +87,10 @@ async function handleMessage(
     } catch (err) {
       respond({
         content: [
-          { type: "text", text: String(err instanceof Error ? err.message : err) },
+          {
+            type: "text",
+            text: String(err instanceof Error ? err.message : err),
+          },
         ],
         isError: true,
       });
@@ -95,7 +98,7 @@ async function handleMessage(
     return;
   }
 
-  error(-32601, `Method not found: ${method}`);
+  error(-32_601, `Method not found: ${method}`);
 }
 
 export function startStdioTransport(
@@ -115,7 +118,9 @@ export function startStdioTransport(
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed) continue;
+      if (!trimmed) {
+        continue;
+      }
 
       let msg: JsonRpcRequest;
       try {
@@ -125,7 +130,7 @@ export function startStdioTransport(
           JSON.stringify({
             jsonrpc: "2.0",
             id: null,
-            error: { code: -32700, message: "Parse error" },
+            error: { code: -32_700, message: "Parse error" },
           }) + "\n"
         );
         continue;

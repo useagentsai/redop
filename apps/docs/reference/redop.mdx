@@ -7,10 +7,29 @@ description: Concise reference for the Redop class and its main chainable method
 
 ```ts
 new Redop({
-  name: "my-mcp-server",
-  version: "0.1.0",
-  schemaAdapter,
-})
+  // Identity (advertised during MCP initialize)
+  name: "my-mcp-server", // machine-readable slug. Default: "redop"
+  title: "My MCP Server", // human-readable display name
+  version: "1.0.0", // semver string. Default: "0.1.0"
+  description: "Does X and Y.",
+
+  // Client UI
+  icons: [
+    {
+      src: "https://example.com/icon.svg",
+      mimeType: "image/svg+xml",
+      sizes: ["any"],
+    },
+  ],
+  websiteUrl: "https://example.com/docs",
+
+  // Emitted as `instructions` at the top level of InitializeResult.
+  // Surfaced to the model at session start — keep concise, it consumes context.
+  instructions: "Always call search before fetch.",
+
+  // Schema validation
+  schemaAdapter, // optional — auto-detects Zod, TypeBox, Valibot
+});
 ```
 
 ## Main methods

@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────
 
 import { z } from "zod";
-import { analytics, apiKey, logger, Redop } from "../src/index";
+import { analytics, logger, Redop } from "../src/index";
 
 // ── Simulated DB ──────────────────────────────
 
@@ -50,7 +50,7 @@ new Redop({
       | number
       | undefined;
     const ms =
-      startedAt != null ? +(performance.now() - startedAt).toFixed(2) : 0;
+      startedAt == null ? 0 : +(performance.now() - startedAt).toFixed(2);
     console.log(`[global.after] ${tool} finished in ${ms}ms`);
   })
 
@@ -77,7 +77,9 @@ new Redop({
     }),
     handler: ({ input }) => {
       const post = posts.find((p) => p.id === input.id);
-      if (!post) throw new Error(`Post not found: ${input.id}`);
+      if (!post) {
+        throw new Error(`Post not found: ${input.id}`);
+      }
       return post;
     },
   })
@@ -117,8 +119,12 @@ new Redop({
     handler: ({ input }) => {
       const q = input.query.toLowerCase();
       const results = posts.filter((p) => {
-        if (input.field === "title") return p.title.toLowerCase().includes(q);
-        if (input.field === "body") return p.body.toLowerCase().includes(q);
+        if (input.field === "title") {
+          return p.title.toLowerCase().includes(q);
+        }
+        if (input.field === "body") {
+          return p.body.toLowerCase().includes(q);
+        }
         return (
           p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q)
         );

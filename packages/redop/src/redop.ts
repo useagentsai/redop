@@ -46,7 +46,10 @@ const DEFAULT_REQUEST_META: RequestMeta = {
   transport: "stdio",
 };
 
-const DEFAULT_SERVER_INFO: Required<ServerInfoOptions> = {
+const DEFAULT_SERVER_INFO: Required<
+  Pick<ServerInfoOptions, "name" | "version">
+> &
+  ServerInfoOptions = {
   name: "redop",
   version: "0.1.0",
 };
@@ -82,13 +85,16 @@ export class Redop<C extends Context = Context> {
    * Create a new redop app instance.
    */
   constructor(options: RedopOptions = {}) {
-    const serverInfo = {
-      ...DEFAULT_SERVER_INFO,
-      ...(options.name ? { name: options.name } : {}),
-      ...(options.version ? { version: options.version } : {}),
+    this._serverInfo = {
+      name: options.name ?? DEFAULT_SERVER_INFO.name,
+      version: options.version ?? DEFAULT_SERVER_INFO.version,
+      title: options.title ?? DEFAULT_SERVER_INFO.title ?? "",
+      description: options.description ?? DEFAULT_SERVER_INFO.description ?? "",
+      icons: options.icons ?? DEFAULT_SERVER_INFO.icons ?? [],
+      websiteUrl: options.websiteUrl ?? DEFAULT_SERVER_INFO.websiteUrl ?? "",
+      instructions:
+        options.instructions ?? DEFAULT_SERVER_INFO.instructions ?? "",
     };
-
-    this._serverInfo = serverInfo;
 
     if (options?.schemaAdapter) {
       this._schemaAdapter = options.schemaAdapter;
