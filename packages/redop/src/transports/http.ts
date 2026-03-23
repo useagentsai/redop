@@ -37,7 +37,7 @@ function createSessionStore(timeoutMs: number) {
   return {
     create(): string {
       const id = crypto.randomUUID();
-      sessions.set(id, { id, createdAt: Date.now(), lastSeen: Date.now() });
+      sessions.set(id, { createdAt: Date.now(), id, lastSeen: Date.now() });
       return id;
     },
     delete(id: string) {
@@ -79,9 +79,9 @@ function buildCorsHeaders(
 
   const origins = Array.isArray(cors.origins)
     ? cors.origins
-    : (cors.origins
+    : cors.origins
       ? [cors.origins]
-      : ["*"]);
+      : ["*"];
 
   const allowedOrigin =
     requestOrigin && origins.includes(requestOrigin)
@@ -115,10 +115,7 @@ type ToolRunner = (
 
 function getRequestHeaders(headers: Headers): Record<string, string> {
   return Object.fromEntries(
-    [...headers.entries()].map(([key, value]) => [
-      key.toLowerCase(),
-      value,
-    ])
+    [...headers.entries()].map(([key, value]) => [key.toLowerCase(), value])
   );
 }
 
@@ -170,10 +167,10 @@ async function handleJsonRpc(
       id,
       jsonrpc: "2.0",
       result: {
-        tools: Array.from(tools.values()).map((t) => ({
-          name: t.name,
+        tools: [...tools.values()].map((t) => ({
           description: t.description ?? "",
           inputSchema: t.inputSchema,
+          name: t.name,
           ...(t.annotations ? { annotations: t.annotations } : {}),
         })),
       },
@@ -202,19 +199,19 @@ async function handleJsonRpc(
         id,
         jsonrpc: "2.0",
         result: {
-          content: [{ type: "text", text: JSON.stringify(result) }],
+          content: [{ text: JSON.stringify(result), type: "text" }],
           isError: false,
         },
       };
     } catch (error) {
       return {
-        jsonrpc: "2.0",
         id,
+        jsonrpc: "2.0",
         result: {
           content: [
             {
-              type: "text",
               text: String(error instanceof Error ? error.message : error),
+              type: "text",
             },
           ],
           isError: true,
@@ -258,9 +255,9 @@ function isOriginAllowed(
 
   // cors: CorsOptions  →  validate against origins allowlist
   const origins = cors.origins
-    ? (Array.isArray(cors.origins)
+    ? Array.isArray(cors.origins)
       ? cors.origins
-      : [cors.origins])
+      : [cors.origins]
     : ["*"];
 
   // "*" in the list means explicitly open — treat like dev mode
@@ -352,8 +349,8 @@ export function startHttpTransport(
             controller.enqueue(
               encode(
                 `event: endpoint\ndata: ${JSON.stringify({
-                  uri: `${url.origin}${mcpPath}`,
                   sessionId,
+                  uri: `${url.origin}${mcpPath}`,
                 })}\n\n`
               )
             );
@@ -405,25 +402,27 @@ export function startHttpTransport(
             { headers: corsHeaders, status: 400 }
           );
         }
-
+        // AFTER — allows Streamable HTTP clients that POST without a session
         const incomingSessionId = req.headers.get("mcp-session-id") ?? "";
-
-        // Every POST must reference a session established via GET (SSE)
-        if (!sessions.touch(incomingSessionId)) {
-          return Response.json(
-            {
-              error: {
-                code: -32_600,
-                message: "Unknown or expired session. Connect via SSE first.",
+        let sessionId: string;
+        if (incomingSessionId) {
+          if (!sessions.touch(incomingSessionId)) {
+            return Response.json(
+              {
+                error: {
+                  code: -32_600,
+                  message: "Unknown or expired session.",
+                },
+                id: body?.id ?? null,
+                jsonrpc: "2.0",
               },
-              id: body?.id ?? null,
-              jsonrpc: "2.0",
-            },
-            { headers: corsHeaders, status: 400 }
-          );
+              { headers: corsHeaders, status: 400 }
+            );
+          }
+          sessionId = incomingSessionId;
+        } else {
+          sessionId = sessions.create();
         }
-
-        const sessionId = incomingSessionId;
 
         // handle the json rpc request
         const result = await handleJsonRpc(
