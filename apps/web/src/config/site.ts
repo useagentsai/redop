@@ -12,5 +12,36 @@ export const siteConfig = {
   url,
 };
 
-export const SITE_KEYWORDS = [""];
-1;
+export const SITE_KEYWORDS = [
+  // Core product
+  "MCP tools",
+  "MCP server",
+  "tool directory",
+  "AI tools",
+  "agent tools",
+
+  // Technology
+  "Model Context Protocol",
+  "MCP",
+  "LLM tools",
+  "AI agents",
+  "agentic AI",
+
+  // Developer audience
+  "developer tools",
+  "API tools",
+  "SDK",
+  "TypeScript",
+  "Bun",
+
+  // Use case
+  "tool search",
+  "tool discovery",
+  "AI integrations",
+  "agent integrations",
+  "workflow automation",
+
+  // Brand
+  "UseAgents",
+  "useagents.dev",
+];
