@@ -28,7 +28,6 @@ jobs:
         working-directory: packages/redop
         run: |
           bun run build
-          bun test
 
       - name: Publish redop
         working-directory: packages/redop

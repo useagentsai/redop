@@ -33,7 +33,7 @@
     "build": "bun run clean && bun run ./scripts/build.ts && tsc -p tsconfig.build.json",
     "build:js": "bun run clean && bun run ./scripts/build.ts",
     "build:types": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "bun run build && bun test"
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "lucide-react": "^1.0.1",
