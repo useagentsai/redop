@@ -15,7 +15,6 @@ import type {
   ResourceContents,
   ServerInfoOptions,
 } from "../types";
-import uiHtml from "../ui/index.html";
 
 // ── Task types ────────────────────────────────
 
@@ -75,6 +74,13 @@ function isOriginAllowed(origin: string | null, serverUrl: string): boolean {
   } catch {
     return false;
   }
+}
+
+function contentTypeForPath(pathname: string): string {
+  if (pathname.endsWith(".css")) return "text/css; charset=utf-8";
+  if (pathname.endsWith(".js")) return "text/javascript; charset=utf-8";
+  if (pathname.endsWith(".html")) return "text/html; charset=utf-8";
+  return "application/octet-stream";
 }
 
 // ── Session + task store ──────────────────────
@@ -690,9 +696,39 @@ export function startHttpTransport(
   >();
   const enc = new TextEncoder();
   const devUIEnabled = opts.devUI ?? process.env.NODE_ENV !== "production";
+  let devUiAssetsPromise:
+    | Promise<{ assets: Map<string, ReturnType<typeof Bun.file>>; html: string }>
+    | undefined;
 
   if (healthPath && healthPath === mcpPath) {
     throw new Error("[redop:http] health path cannot match the MCP path");
+  }
+
+  function getDevUiAssets() {
+    if (!devUiAssetsPromise) {
+      devUiAssetsPromise = (async () => {
+        const htmlUrl = new URL("./ui/index.html", import.meta.url);
+        const htmlFile = Bun.file(htmlUrl);
+        const html = await htmlFile.text();
+        const assetPaths = [...html.matchAll(/(?:href|src)="([^"]+)"/g)]
+          .map((match) => match[1]!)
+          .filter(
+            (assetPath) =>
+              assetPath.startsWith("./") || assetPath.startsWith("../"),
+          );
+        const assets = new Map<string, ReturnType<typeof Bun.file>>();
+
+        for (const assetPath of assetPaths) {
+          const requestPath = new URL(assetPath, "https://redop.local/").pathname;
+          const assetUrl = new URL(assetPath, htmlUrl);
+          assets.set(requestPath, Bun.file(assetUrl));
+        }
+
+        return { html, assets };
+      })();
+    }
+
+    return devUiAssetsPromise;
   }
 
   function debugLog(event: string, data: Record<string, unknown>) {
@@ -732,14 +768,6 @@ export function startHttpTransport(
     port,
     hostname,
     idleTimeout: 255,
-    ...(devUIEnabled
-      ? {
-          routes: {
-            "/": uiHtml,
-          },
-        }
-      : {}),
-
     development: devUIEnabled,
     async fetch(req) {
       const url = new URL(req.url);
@@ -781,6 +809,23 @@ export function startHttpTransport(
               "Content-Type, Accept, MCP-Session-Id, MCP-Protocol-Version, Last-Event-ID",
           },
         });
+      }
+
+      if (devUIEnabled && req.method === "GET") {
+        if (url.pathname === "/") {
+          const { html } = await getDevUiAssets();
+          return new Response(html, {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        }
+
+        const { assets } = await getDevUiAssets();
+        const asset = assets.get(url.pathname);
+        if (asset) {
+          return new Response(asset, {
+            headers: { "Content-Type": contentTypeForPath(url.pathname) },
+          });
+        }
       }
 
       // ── Provide the data the UI needs

@@ -1,6 +1,6 @@
 {
   "name": "@useagents/redop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Bun-native MCP server framework",
   "keywords": [
     "bun",
