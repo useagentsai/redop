@@ -20,6 +20,8 @@ This guide assumes:
 
 If you still need a container setup, start with [Deploy with Docker](/guides/deploy/docker) and come back once your Redop app builds cleanly in Docker.
 
+If your Redop app lives inside a monorepo, use the monorepo production image pattern from [Deploy with Docker](/guides/deploy/docker) and point Unkey at that Dockerfile.
+
 ## Unkey fit
 
 | Item | Value |
@@ -67,10 +69,10 @@ If you want Unkey to probe a dedicated health endpoint, enable one explicitly:
 
 ## Example Dockerfile
 
-Unkey Deploy expects a Dockerfile. A simple Redop image can look like this:
+Unkey Deploy expects a Dockerfile. Use a compiled production image so Unkey runs a single built executable:
 
 ```dockerfile
-FROM oven/bun:1.3.11
+FROM oven/bun:1.3.11 AS build
 
 WORKDIR /app
 
@@ -79,10 +81,26 @@ RUN bun install
 
 COPY . .
 
+RUN bun build \
+  --compile \
+  --minify-whitespace \
+  --minify-syntax \
+  --target bun-linux-x64 \
+  --outfile redop-server \
+  src/index.ts
+
+FROM gcr.io/distroless/base
+
+WORKDIR /app
+
+COPY --from=build /app/redop-server redop-server
+
 EXPOSE 8080
 
-CMD ["bun", "run", "src/index.ts"]
+CMD ["./redop-server"]
 ```
+
+If your Redop app lives inside a monorepo, replace the example copy steps and entry path with your real workspace layout by following the monorepo production image example in [Deploy with Docker](/guides/deploy/docker).
 
 ## Deploy steps
 

@@ -18,6 +18,8 @@ If you scaffolded with `create-redop-app --transport http --deploy fly-io`, the 
 - `Dockerfile`
 - `fly.toml`
 
+If your Redop app lives inside a monorepo, use the monorepo production image pattern from [Deploy with Docker](/guides/deploy/docker) and adapt `fly.toml` to the same internal port.
+
 ## Fly.io fit
 
 | Item | Value |
@@ -65,6 +67,8 @@ EXPOSE 3000
 
 CMD ["bun", "run", "src/index.ts"]
 ```
+
+This generated Dockerfile is the single-project starter. For a monorepo app, switch to the monorepo production image from [Deploy with Docker](/guides/deploy/docker) and keep the Fly internal port aligned with your Redop listener.
 
 ## Generated `fly.toml`
 
